@@ -36,20 +36,20 @@ namespace WhisperConverter
         {
             var dialog = new OpenFileDialog
             {
-        
+
                 Title = "Select an audio file"
             };
 
             if (dialog.ShowDialog() == true)
             {
                 string wavPath = dialog.FileName;
-                string modelPath = "ggml-base.bin";
+                string modelPath = "ggml-base1.bin";
 
                 TranscriptBox.Text = "Loading...";
 
                 if (!File.Exists(modelPath))
                 {
-                    var modelStream = await WhisperGgmlDownloader.Default.GetGgmlModelAsync(GgmlType.Medium);
+                    var modelStream = await WhisperGgmlDownloader.Default.GetGgmlModelAsync(GgmlType.Base);
                     using (var fileWriter = File.OpenWrite(modelPath))
                     {
                         await modelStream.CopyToAsync(fileWriter);
@@ -71,13 +71,16 @@ namespace WhisperConverter
                 using var fs = File.OpenRead(tempWavPath);
                 await foreach (var result in processor.ProcessAsync(fs))
                 {
-                    sb.AppendLine($"{result.Start:hh\\:mm\\:ss} - {result.Text}");
+                    //sb.AppendLine($"{result.Start:hh\\:mm\\:ss} - {result.Text}");
 
-                    if (result.Start.TotalSeconds % 30 == 0) // co 30 sek
-                    {
-                        TranscriptBox.Text = sb.ToString();
-                        await Task.Delay(1); // odśwież UI
-                    }
+                    //if (result.Start.TotalSeconds % 30 == 0) // co 30 sek
+                    //{
+                    //    TranscriptBox.Text = sb.ToString();
+                    //    await Task.Delay(1); // odśwież UI
+                    //}
+                    sb.AppendLine($"{result.Start:hh\\:mm\\:ss} - {result.Text}");
+                    TranscriptBox.Text = sb.ToString();
+                    await Task.Delay(10); // żeby odświeżyć UI
                 }
                 TranscriptBox.Text = sb.ToString();
             }
@@ -88,9 +91,30 @@ namespace WhisperConverter
         void ConvertTo16kHzMono(string inputPath, string outputPath)
         {
             using var reader = new AudioFileReader(inputPath);
-            var outFormat = new WaveFormat(16000, 16, 1); // 16kHz, 16bit, mono
-            var resampler = new WdlResamplingSampleProvider(reader, 16000);
+
+            var mono = new StereoToMonoSampleProvider(reader)
+            {
+                LeftVolume = 1.0f,
+                RightVolume = 1.0f
+            };
+
+            // szum (oklaski) gate
+            var gated = ApplyNoiseGate(mono, -25); // -25 dB to próg, można zmieniać
+
+            // resample
+            var resampler = new WdlResamplingSampleProvider(gated, 16000);
             WaveFileWriter.CreateWaveFile16(outputPath, resampler);
+
+            // Sprawdzenie długości
+            using var check = new AudioFileReader(outputPath);
+            MessageBox.Show($"Długość przekonwertowanego pliku: {check.TotalTime}");
         }
+
+        ISampleProvider ApplyNoiseGate(ISampleProvider input, float thresholdDb = -30f)
+        {
+            return new NoiseGateSampleProvider(input, thresholdDb);
+        }
+
+
     }
 }
