@@ -43,20 +43,29 @@ namespace WhisperConverter
             if (dialog.ShowDialog() == true)
             {
                 string wavPath = dialog.FileName;
-                string modelPath = "ggml-base1.bin";
+                string modelPath = "ggml-base.bin";
+                //string modelPath = "ggml-medium.bin";
 
                 TranscriptBox.Text = "Loading...";
 
                 if (!File.Exists(modelPath))
                 {
+                    TranscriptBox.Text = "Downloading model...";
                     var modelStream = await WhisperGgmlDownloader.Default.GetGgmlModelAsync(GgmlType.Base);
-                    using (var fileWriter = File.OpenWrite(modelPath))
-                    {
-                        await modelStream.CopyToAsync(fileWriter);
-                    }
+                    using var fileWriter = File.OpenWrite(modelPath);
+                    await modelStream.CopyToAsync(fileWriter);
+                    TranscriptBox.Text = "Model downloaded.";
+                }
+                else
+                {
+                    TranscriptBox.Text = "Model already downloaded.";
                 }
 
-                TranscriptBox.Text += "Transkrypcja...";
+                var fileInfo = new FileInfo(modelPath);
+                TranscriptBox.Text += $"\nModel size: {fileInfo.Length / (1024 * 1024)} MB";
+
+
+                TranscriptBox.Text += "\nTranskrypcja...";
 
                 // Konwersja do 16kHz mono
                 string tempWavPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "converted.wav");
@@ -92,23 +101,31 @@ namespace WhisperConverter
         {
             using var reader = new AudioFileReader(inputPath);
 
+            // 1. Convert stereo to mono
             var mono = new StereoToMonoSampleProvider(reader)
             {
                 LeftVolume = 1.0f,
                 RightVolume = 1.0f
             };
 
-            // szum (oklaski) gate
-            var gated = ApplyNoiseGate(mono, -25); // -25 dB to próg, można zmieniać
+            // 2. Normalize audio to boost quieter speech
+            var normalized = new VolumeSampleProvider(mono)
+            {
+                Volume = 2.0f // Try different values: 1.5, 2.0, 2.5
+            };
 
-            // resample
+            // 3. Apply a less aggressive noise gate
+            var gated = ApplyNoiseGate(normalized, -35); // Allow quieter speech through
+
+            // 4. Resample to 16kHz mono
             var resampler = new WdlResamplingSampleProvider(gated, 16000);
             WaveFileWriter.CreateWaveFile16(outputPath, resampler);
 
-            // Sprawdzenie długości
+            // 5. Info box (optional)
             using var check = new AudioFileReader(outputPath);
             MessageBox.Show($"Długość przekonwertowanego pliku: {check.TotalTime}");
         }
+
 
         ISampleProvider ApplyNoiseGate(ISampleProvider input, float thresholdDb = -30f)
         {
