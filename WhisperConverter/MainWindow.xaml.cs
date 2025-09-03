@@ -27,9 +27,12 @@ namespace WhisperConverter
     /// </summary>
     public partial class MainWindow : Window
     {
+        //public static List<string> modes = new List<string>();
         public MainWindow()
         {
             InitializeComponent();
+            MyCombo.ItemsSource = new List<string> { "base", "large" };
+            MyCombo.SelectedIndex = 0;
         }
 
         private async void Button_Click(object sender, RoutedEventArgs e)
@@ -89,7 +92,7 @@ namespace WhisperConverter
                     //}
                     sb.AppendLine($"{result.Start:hh\\:mm\\:ss} - {result.Text}");
                     TranscriptBox.Text = sb.ToString();
-                    await Task.Delay(10); // żeby odświeżyć UI
+                    await Task.Delay(10); 
                 }
                 TranscriptBox.Text = sb.ToString();
             }
@@ -115,7 +118,7 @@ namespace WhisperConverter
             };
 
             // 3. Apply a less aggressive noise gate
-            var gated = ApplyNoiseGate(normalized, -35); // Allow quieter speech through
+            var gated = ApplyNoiseGate(normalized, -35);
 
             // 4. Resample to 16kHz mono
             var resampler = new WdlResamplingSampleProvider(gated, 16000);
