@@ -17,7 +17,10 @@
         </Grid.RowDefinitions>
 
         <Button Content="Select WAV File" Click="Button_Click" Width="150" Height="30" Margin="0,0,0,10" Grid.Row="0"/>
-        <ComboBox x:Name="MyCombo" IsReadOnly="True" Grid.Row="1" Width="150"></ComboBox>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center">
+            <ComboBox x:Name="MyCombo" IsReadOnly="True" Width="150" Margin="10" SelectionChanged="MyCombo_SelectionChanged"></ComboBox>
+            <ComboBox x:Name="LaunguageCombo" IsReadOnly="True" Width="150" Margin="10"></ComboBox>
+        </StackPanel>
 
         <TextBox x:Name="TranscriptBox" Grid.Row="2" 
                  AcceptsReturn="True" VerticalScrollBarVisibility="Auto"

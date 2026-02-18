@@ -28,11 +28,14 @@ namespace WhisperConverter
     public partial class MainWindow : Window
     {
         //public static List<string> modes = new List<string>();
+        //public string selectedModel = "";
         public MainWindow()
         {
             InitializeComponent();
             MyCombo.ItemsSource = new List<string> { "base", "large" };
+            LaunguageCombo.ItemsSource = new List<string>{ "pl", "en" };
             MyCombo.SelectedIndex = 0;
+            LaunguageCombo.SelectedIndex = 0;
         }
 
         private async void Button_Click(object sender, RoutedEventArgs e)
@@ -46,15 +49,18 @@ namespace WhisperConverter
             if (dialog.ShowDialog() == true)
             {
                 string wavPath = dialog.FileName;
-                string modelPath = "ggml-base.bin";
+
+                string selectedModel = MyCombo.SelectedItem.ToString();
+                string modelPath = $"ggml-{selectedModel}.bin";
                 //string modelPath = "ggml-medium.bin";
 
                 TranscriptBox.Text = "Loading...";
 
                 if (!File.Exists(modelPath))
                 {
-                    TranscriptBox.Text = "Downloading model...";
-                    var modelStream = await WhisperGgmlDownloader.Default.GetGgmlModelAsync(GgmlType.Base);
+                    GgmlType type = selectedModel == "base" ? GgmlType.Base : GgmlType.LargeV1;
+                    TranscriptBox.Text = $"Downloading {selectedModel} model...";
+                    var modelStream = await WhisperGgmlDownloader.Default.GetGgmlModelAsync(type);
                     using var fileWriter = File.OpenWrite(modelPath);
                     await modelStream.CopyToAsync(fileWriter);
                     TranscriptBox.Text = "Model downloaded.";
@@ -77,7 +83,7 @@ namespace WhisperConverter
                 var sb = new StringBuilder();
                 var factory = WhisperFactory.FromPath(modelPath);
                 var processor = factory.CreateBuilder()
-                    .WithLanguage("pl")
+                    .WithLanguage(LaunguageCombo.SelectedItem.ToString())
                     .Build();
 
                 using var fs = File.OpenRead(tempWavPath);
@@ -114,7 +120,7 @@ namespace WhisperConverter
             // 2. Normalize audio to boost quieter speech
             var normalized = new VolumeSampleProvider(mono)
             {
-                Volume = 2.0f // Try different values: 1.5, 2.0, 2.5
+                Volume = 2.0f
             };
 
             // 3. Apply a less aggressive noise gate
@@ -135,6 +141,9 @@ namespace WhisperConverter
             return new NoiseGateSampleProvider(input, thresholdDb);
         }
 
+        private void MyCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
 
+        }
     }
 }
