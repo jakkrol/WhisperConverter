@@ -21,7 +21,7 @@ To install Whisper.net with all the available runtimes, run the following comman
 Or add a package reference in your `.csproj` file:
 
 ```
-    <PackageReference Include="Whisper.net.AllRuntimes" Version="1.8.1" />
+    <PackageReference Include="Whisper.net.AllRuntimes" Version="1.9.0" />
 ```
 
 `Whisper.net` is the main package that contains the core functionality but does not include any runtimes. `Whisper.net.AllRuntimes` includes all available runtimes for Whisper.net.
@@ -31,10 +31,10 @@ Or add a package reference in your `.csproj` file:
 To install a specific runtime, you can install them individually and combine them as needed. For example, to install the CPU runtime, add the following package references:
 
 ```
-    <PackageReference Include="Whisper.net" Version="1.8.1" />
+    <PackageReference Include="Whisper.net" Version="1.9.0" />
 ```
 ```
-    <PackageReference Include="Whisper.net.Runtime" Version="1.8.1" />
+    <PackageReference Include="Whisper.net.Runtime" Version="1.9.0" />
 ```
 
 ## GPT for Whisper
@@ -62,7 +62,8 @@ The default runtime that uses the CPU for inference. It is available on all plat
 
 #### Pre-requisites
 
- - Windows: Microsoft Visual C++ Redistributable for at least Visual Studio 2019 (x64) [Download Link](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-microsoft-visual-c-redistributable-version)
+ - Windows: Microsoft Visual C++ Redistributable for at least Visual Studio 2022 (x64) [Download Link](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-microsoft-visual-c-redistributable-version)
+ - Windows 11 or Windows Server 2022 (or newer) is required
  - Linux: `libstdc++6`, `glibc 2.31`
  - macOS: TBD
  - For x86/x64 platforms, the CPU must support AVX, AVX2, FMA and F16C instructions. If your CPU does not support these instructions, you'll need to use the `Whisper.net.Runtime.NoAvx` runtime instead.
@@ -84,7 +85,8 @@ For CPUs that do not support AVX instructions.
 
 #### Pre-requisites
 
- - Windows: Microsoft Visual C++ Redistributable for at least Visual Studio 2019 (x64) [Download Link](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-microsoft-visual-c-redistributable-version)
+ - Windows: Microsoft Visual C++ Redistributable for at least Visual Studio 2022 (x64) [Download Link](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-microsoft-visual-c-redistributable-version)
+ - Windows 11 or Windows Server 2022 (or newer) is required
  - Linux: `libstdc++6`, `glibc 2.31`
  - macOS: TBD
 
@@ -105,7 +107,7 @@ Contains the native whisper.cpp library with NVidia CUDA support enabled.
 
 - Everything from Whisper.net.Runtime pre-requisites
 - NVidia GPU with CUDA support
-- [CUDA Toolkit (>= 12.1)](https://developer.nvidia.com/cuda-downloads)
+- [CUDA Toolkit (>= 13.0.1)](https://developer.nvidia.com/cuda-downloads)
 
 #### Supported Platforms
 
@@ -155,7 +157,7 @@ Contains the native whisper.cpp library with Vulkan support enabled.
 #### Pre-requisites
 
 - Everything from Whisper.net.Runtime pre-requisites
-- [Vulkan Toolkit (>= 1.3.290.0)](https://vulkan.lunarg.com/sdk/home)]
+- [Vulkan Toolkit (>= 1.4.321.1)](https://vulkan.lunarg.com/sdk/home)]
 
 #### Supported Platforms
 
@@ -186,6 +188,11 @@ RuntimeOptions.RuntimeLibraryOrder =
 ];
 ```
 
+### Pluggable native runtimes
+- Whisper.net can run with any compatible compilation of the native whisper.cpp libraries; the package Whisper.net.Runtime is just one of the possible builds we publish.
+- You may build your own native binaries (CPU, CUDA, CoreML, OpenVINO, Vulkan, NoAvx) and use them with Whisper.net as long as their files are arranged under ./runtimes in the same layout as our NuGet packages. The NativeLibraryLoader will probe them at runtime.
+- For reproducible builds, you can use the attached GitHub workflows as references or entry points to produce artifacts: .github/workflows/ (e.g., dotnet.yml, dotnet-noavx.yml, dotnet-maui.yml). These workflows compile and package native libraries across platforms and can be adapted for your needs.
+
 ## Versioning
 
 Whisper.net follows semantic versioning.
@@ -210,6 +217,14 @@ if (!File.Exists(modelName))
 }
 ```
 
+### Environment variables for model downloads
+
+- HF_TOKEN
+  - Optional. If set, Whisper.net will add an Authorization header when downloading models from Hugging Face to avoid rate limiting.
+  - Example:
+    - Bash: `export HF_TOKEN=hf_xxx`
+    - PowerShell: `$env:HF_TOKEN = "hf_xxx"`
+
 ## Usage
 
 ```csharp
@@ -231,51 +246,15 @@ await foreach (var result in processor.ProcessAsync(fileStream))
 
 You can find the documentation and code samples [here](https://github.com/sandrohanea/whisper.net).
 
-## Building The Runtime
+- Development environment setup notes are available in DEVELOPMENT.md.
 
-This section describes how to build the native runtime libraries for Whisper.net.
-Normally, you would not need to build the runtime libraries yourself, as they are available as NuGet packages.
+## Running tests
 
-The build scripts are a combination of PowerShell scripts and a Makefile. You can read each of them for the underlying `cmake` commands being used, or run them directly from the scripts.
+For instructions on running the test suites locally (including required .NET SDKs, optional environment variables like HF_TOKEN), see tests/README.md.
 
-You can also check the github actions available [here](https://github.com/sandrohanea/whisper.net/tree/main/.github/workflows)
-
-### Android
-
-`make android`
-
-Before running, create an environment variable for `NDK_PATH` with the path to your Android NDK. For example:
-
-`NDK_PATH=/Users/UserName/Library/Developer/Xamarin/android-sdk-macosx/ndk-bundle`
-
-### Apple
-
-`make apple`
-
-Compiling the Apple libraries requires a Mac with Xcode installed.
-
-### Apple CoreML
-
-`make apple_coreml`
-
-Compiling the Apple libraries requires a Mac with Xcode installed.
-
-### Linux
-
-`make linux`
-
-### Windows
-
-Import the PowerShell module:
-
-`Import-Module ./windows-scripts.ps1`
-
-Run `BuildWindowsAll` to build all Windows libraries.
-Alternatively, you can run `BuildWindows` with the desired parameters.
-
-```
-BuildWindows -Arch "x64" -Configuration "Release"  -NoAvx $true
-```
+- Offline/local alternative: You can run tests fully locally without network by pre-downloading all ggml models required by tests and pointing tests to them via WHISPER_TEST_MODEL_PATH.
+- MAUI tests use the Dotnet XHarness CLI to drive emulators/simulators. Docs: https://github.com/dotnet/xharness
+- Native runtimes: By default, tests and are using the locally built native binaries instead, see “Building The Runtime” in DEVELOPMENT.md and ensure the output matches the expected runtimes layout.
 
 ## License
 

@@ -1,24 +1,14 @@
 ﻿using Microsoft.Win32;
-using System;
+using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using Whisper.net;
 using Whisper.net.Ggml;
-using System.ComponentModel;
-using NAudio.Wave;
-using NAudio.Wave.SampleProviders;
 
 namespace WhisperConverter
 {
@@ -32,7 +22,7 @@ namespace WhisperConverter
         public MainWindow()
         {
             InitializeComponent();
-            MyCombo.ItemsSource = new List<string> { "base", "large" };
+            MyCombo.ItemsSource = new List<string> { "base", "medium", "large" };
             LaunguageCombo.ItemsSource = new List<string>{ "pl", "en" };
             MyCombo.SelectedIndex = 0;
             LaunguageCombo.SelectedIndex = 0;
@@ -58,7 +48,13 @@ namespace WhisperConverter
 
                 if (!File.Exists(modelPath))
                 {
-                    GgmlType type = selectedModel == "base" ? GgmlType.Base : GgmlType.LargeV1;
+                    GgmlType type = selectedModel switch
+                    {
+                        "base" => GgmlType.Base,
+                        "medium" => GgmlType.Medium,
+                        "large" => GgmlType.LargeV1,
+                        _ => GgmlType.Base
+                    };
                     TranscriptBox.Text = $"Downloading {selectedModel} model...";
                     var modelStream = await WhisperGgmlDownloader.Default.GetGgmlModelAsync(type);
                     using var fileWriter = File.OpenWrite(modelPath);
@@ -78,23 +74,33 @@ namespace WhisperConverter
 
                 // Konwersja do 16kHz mono
                 string tempWavPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "converted.wav");
-                ConvertTo16kHzMono(wavPath, tempWavPath);
+                TranscriptBox.Text += "\nKonwersja audio (proszę czekać)...";
+                await Task.Run(() => ConvertTo16kHzMono(wavPath, tempWavPath)); 
+                TranscriptBox.Text += "\nKonwersja zakończona. Rozpoczynam transkrypcję...";
 
+
+                //CREATING BUILDER
                 var sb = new StringBuilder();
                 var factory = WhisperFactory.FromPath(modelPath);
+                //var processor = factory.CreateBuilder()
+                //    .WithLanguage(LaunguageCombo.SelectedItem.ToString())
+                //    .Build();
                 var processor = factory.CreateBuilder()
                     .WithLanguage(LaunguageCombo.SelectedItem.ToString())
                     .Build();
+               
+
+
 
                 using var fs = File.OpenRead(tempWavPath);
                 await foreach (var result in processor.ProcessAsync(fs))
                 {
                     //sb.AppendLine($"{result.Start:hh\\:mm\\:ss} - {result.Text}");
 
-                    //if (result.Start.TotalSeconds % 30 == 0) // co 30 sek
+                    //if (result.Start.TotalSeconds % 30 == 0) 
                     //{
                     //    TranscriptBox.Text = sb.ToString();
-                    //    await Task.Delay(1); // odśwież UI
+                    //    await Task.Delay(1); 
                     //}
                     sb.AppendLine($"{result.Start:hh\\:mm\\:ss} - {result.Text}");
                     TranscriptBox.Text = sb.ToString();
@@ -108,31 +114,53 @@ namespace WhisperConverter
 
         void ConvertTo16kHzMono(string inputPath, string outputPath)
         {
-            using var reader = new AudioFileReader(inputPath);
+            //using var reader = new AudioFileReader(inputPath);
 
-            // 1. Convert stereo to mono
-            var mono = new StereoToMonoSampleProvider(reader)
+            //// 1. Convert stereo to mono
+            //var mono = new StereoToMonoSampleProvider(reader)
+            //{
+            //    LeftVolume = 1.0f,
+            //    RightVolume = 1.0f
+            //};
+
+            //// 2. Normalize audio to boost quieter speech
+            //var normalized = new VolumeSampleProvider(mono)
+            //{
+            //    Volume = 2.0f
+            //};
+
+            //// 3. Apply a less aggressive noise gate
+            //var gated = ApplyNoiseGate(normalized, -35);
+
+            //// 4. Resample to 16kHz mono
+            //var resampler = new WdlResamplingSampleProvider(gated, 16000);
+            //WaveFileWriter.CreateWaveFile16(outputPath, resampler);
+
+            //// 5. Info box (optional)
+            //using var check = new AudioFileReader(outputPath);
+            //MessageBox.Show($"Długość przekonwertowanego pliku: {check.TotalTime}");
+
+            using (var reader = new AudioFileReader(inputPath)) 
             {
-                LeftVolume = 1.0f,
-                RightVolume = 1.0f
-            };
+                var mono = new StereoToMonoSampleProvider(reader)
+                {
+                    LeftVolume = 1.0f,
+                    RightVolume = 1.0f
+                };
 
-            // 2. Normalize audio to boost quieter speech
-            var normalized = new VolumeSampleProvider(mono)
-            {
-                Volume = 2.0f
-            };
+                var normalized = new VolumeSampleProvider(mono)
+                {
+                    Volume = 2.0f
+                };
 
-            // 3. Apply a less aggressive noise gate
-            var gated = ApplyNoiseGate(normalized, -35);
+                var gated = ApplyNoiseGate(normalized, -35);
 
-            // 4. Resample to 16kHz mono
-            var resampler = new WdlResamplingSampleProvider(gated, 16000);
-            WaveFileWriter.CreateWaveFile16(outputPath, resampler);
+                var resampler = new WdlResamplingSampleProvider(gated, 16000);
+                WaveFileWriter.CreateWaveFile16(outputPath, resampler);
 
-            // 5. Info box (optional)
-            using var check = new AudioFileReader(outputPath);
-            MessageBox.Show($"Długość przekonwertowanego pliku: {check.TotalTime}");
+                using var check = new AudioFileReader(outputPath);
+                MessageBox.Show($"Długość przekonwertowanego pliku: {check.TotalTime}");
+            }
         }
 
 
