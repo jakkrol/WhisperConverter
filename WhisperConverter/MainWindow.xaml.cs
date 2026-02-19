@@ -107,6 +107,7 @@ namespace WhisperConverter
                     await Task.Delay(10); 
                 }
                 TranscriptBox.Text = sb.ToString();
+                TranscriptBox.Text += "Koniec transkrypcji";
             }
         }
 
@@ -169,9 +170,6 @@ namespace WhisperConverter
             return new NoiseGateSampleProvider(input, thresholdDb);
         }
 
-        private void MyCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-
-        }
+  
     }
 }
